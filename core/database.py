@@ -1,13 +1,16 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "queue_system.db")
+# Place the database file at the project root, one level above this package.
+DB_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "queue_system.db",
+)
 
 
 def connect():
     """Opens a connection to queue_system.db (creates the file if it doesn't exist)."""
-    connection = sqlite3.connect(DB_PATH)
-    return connection
+    return sqlite3.connect(DB_PATH)
 
 
 def create_tables():
@@ -18,9 +21,9 @@ def create_tables():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS customers (
             id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticket     TEXT    NOT NULL,
-            name       TEXT    NOT NULL,
-            status     TEXT    NOT NULL DEFAULT 'waiting',
+            ticket     TEXT      NOT NULL,
+            name       TEXT      NOT NULL,
+            status     TEXT      NOT NULL DEFAULT 'waiting',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -34,9 +37,3 @@ def create_tables():
 
     conn.commit()
     conn.close()
-    print("✅ Database ready — tables verified.")
-
-
-if __name__ == "__main__":
-    create_tables()
-
