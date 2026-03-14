@@ -37,7 +37,11 @@ def handle_join_queue():
 
 
 def handle_call_next():
-    result = call_next()
+    try:
+        result = call_next()
+    except RuntimeError as e:
+        print(f"\n⚠️  {e}")
+        return
     if result is None:
         print("\n📭 No one is waiting in the queue.")
     else:
@@ -153,4 +157,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("\n\n👋 Interrupted. Queue system closed.")

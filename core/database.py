@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from contextlib import contextmanager
 
 # Place the database file at the project root, one level above this package.
 DB_PATH = os.path.join(
@@ -8,32 +9,29 @@ DB_PATH = os.path.join(
 )
 
 
+@contextmanager
 def connect():
-    """Opens a connection to queue_system.db (creates the file if it doesn't exist)."""
-    return sqlite3.connect(DB_PATH)
+    """Opens a connection to queue_system.db and ensures it is closed on exit."""
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def create_tables():
-    """Creates the customers and counters tables if they don't already exist."""
-    conn = connect()
-    cursor = conn.cursor()
+    """Creates the customers table if it doesn't already exist."""
+    with connect() as conn:
+        cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS customers (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            ticket     TEXT      NOT NULL,
-            name       TEXT      NOT NULL,
-            status     TEXT      NOT NULL DEFAULT 'waiting',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS customers (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                ticket     TEXT      NOT NULL,
+                name       TEXT      NOT NULL,
+                status     TEXT      NOT NULL DEFAULT 'waiting',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS counters (
-            id   INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT    NOT NULL
-        )
-    """)
-
-    conn.commit()
-    conn.close()
+        conn.commit()
