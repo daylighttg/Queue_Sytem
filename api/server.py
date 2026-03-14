@@ -7,15 +7,15 @@ Endpoints
 POST /join      Customer joins the queue    → { "ticket": "Q005", "name": "…", "position": 3 }
 GET  /queue     List everyone waiting       → { "waiting": […], "count": N }
 GET  /status    Who is being served now     → { "serving": {…}, "waiting": N }
-POST /next      Admin calls next customer   → { "ticket": "…", "name": "…" }
-POST /done      Admin marks customer done   → { "ticket": "…", "name": "…" }
+POST /next      Admin calls next customer   → { "ticket": "…", "name": "…" }  (requires X-API-Key)
+POST /done      Admin marks customer done   → { "ticket": "…", "name": "…" }  (requires X-API-Key)
 GET  /history   Full record history         → { "records": […], "count": N }
 """
 
 import os
+from functools import wraps
 
 from flask import Flask, request, jsonify
-from core.database import create_tables
 from core.queue_logic import (
     join_queue,
     call_next,
@@ -28,8 +28,18 @@ from core.queue_logic import (
 
 app = Flask(__name__)
 
-# ── Initialise database on startup ─────────────────────────────
-create_tables()
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "changeme")
+
+
+def require_admin(f):
+    """Decorator that checks for a valid X-API-Key header on admin endpoints."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        key = request.headers.get("X-API-Key", "")
+        if key != ADMIN_API_KEY:
+            return jsonify({"error": "Unauthorized. Provide a valid X-API-Key header."}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 
 # ── POST /join ─────────────────────────────────────────────────
@@ -41,8 +51,8 @@ def join():
         return jsonify({"error": "Name is required."}), 400
 
     name = data["name"].strip()
-    ticket = join_queue(name)
     position = count_waiting()
+    ticket = join_queue(name)
     return jsonify({"ticket": ticket, "name": name, "position": position}), 201
 
 
@@ -71,9 +81,13 @@ def status():
 
 # ── POST /next ─────────────────────────────────────────────────
 @app.route("/next", methods=["POST"])
+@require_admin
 def next_customer():
     """Admin calls the next waiting customer → sets status to 'serving'."""
-    result = call_next()
+    try:
+        result = call_next()
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 409
     if result is None:
         return jsonify({"error": "No one is waiting in the queue."}), 404
     ticket, name = result
@@ -82,6 +96,7 @@ def next_customer():
 
 # ── POST /done ─────────────────────────────────────────────────
 @app.route("/done", methods=["POST"])
+@require_admin
 def done():
     """Admin marks the currently serving customer as done."""
     result = mark_done()
@@ -105,6 +120,9 @@ def history():
 
 # ── Run the server ─────────────────────────────────────────────
 if __name__ == "__main__":
+    from core.database import create_tables
+
+    create_tables()
     print("🚀 Queue System Flask Server starting …")
     print("   Other devices on the same Wi-Fi can reach this at")
     print("   http://<YOUR-PC-IP>:5000")

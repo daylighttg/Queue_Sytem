@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
-from core.database import create_tables
 from core.queue_logic import (
     join_queue,
     call_next,
@@ -21,8 +20,6 @@ class QueueSystemGUI:
         self.root.title("🏥 Queue System")
         self.root.geometry("900x650")
         self.root.resizable(True, True)
-
-        create_tables()
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -77,7 +74,7 @@ class QueueSystemGUI:
         ).pack(pady=5, fill=tk.X)
         ttk.Button(
             left_panel, text="❌ Exit", width=button_width,
-            command=self.root.quit,
+            command=self.root.destroy,
         ).pack(pady=5, fill=tk.X)
 
         # Right panel — tabbed display
@@ -140,6 +137,8 @@ class QueueSystemGUI:
                 ticket, name = result
                 messagebox.showinfo("Now Serving", f"📢 Now serving: {name}\nTicket: {ticket}")
             self.refresh_display()
+        except RuntimeError as e:
+            messagebox.showwarning("Warning", f"⚠️  {e}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to call next customer: {e}")
 
@@ -195,10 +194,17 @@ class QueueSystemGUI:
                     messagebox.showwarning("Warning", "Please select a record to delete.")
                     return
                 record_id = record_ids[selection[0]]
+                # Re-fetch from the database to avoid acting on stale data.
+                fresh_rows = get_all_records()
                 record_info = next(
-                    ((t, n) for rid, t, n, s in rows if rid == record_id), None
+                    ((t, n) for rid, t, n, s in fresh_rows if rid == record_id), None
                 )
-                if record_info and messagebox.askyesno(
+                if record_info is None:
+                    messagebox.showwarning("Warning", "Record no longer exists.")
+                    delete_window.destroy()
+                    self.refresh_display()
+                    return
+                if messagebox.askyesno(
                     "Confirm", f"⚠️  Delete {record_info[0]} ({record_info[1]})?"
                 ):
                     try:
@@ -239,6 +245,9 @@ class QueueSystemGUI:
     # ── Display refresh ───────────────────────────────────────
     def refresh_display(self):
         """Refreshes all tabs with current data from the database."""
+        for widget in (self.waiting_text, self.history_text, self.stats_text):
+            widget.config(state=tk.NORMAL)
+
         self.waiting_text.delete(1.0, tk.END)
         self.history_text.delete(1.0, tk.END)
         self.stats_text.delete(1.0, tk.END)
@@ -284,6 +293,9 @@ class QueueSystemGUI:
             )
         except Exception as e:
             messagebox.showerror("Error", f"Failed to refresh display: {e}")
+        finally:
+            for widget in (self.waiting_text, self.history_text, self.stats_text):
+                widget.config(state=tk.DISABLED)
 
 
 def main():
