@@ -16,6 +16,7 @@ import os
 from functools import wraps
 
 from flask import Flask, request, jsonify
+from core.database import create_tables
 from core.queue_logic import (
     join_queue,
     call_next,
@@ -24,9 +25,11 @@ from core.queue_logic import (
     get_serving,
     get_history,
     count_waiting,
+    get_waiting_position,
 )
 
 app = Flask(__name__)
+create_tables()
 
 ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "changeme")
 
@@ -51,8 +54,8 @@ def join():
         return jsonify({"error": "Name is required."}), 400
 
     name = data["name"].strip()
-    position = count_waiting()
     ticket = join_queue(name)
+    position = get_waiting_position(ticket)
     return jsonify({"ticket": ticket, "name": name, "position": position}), 201
 
 
@@ -120,9 +123,6 @@ def history():
 
 # ── Run the server ─────────────────────────────────────────────
 if __name__ == "__main__":
-    from core.database import create_tables
-
-    create_tables()
     print("🚀 Queue System Flask Server starting …")
     print("   Other devices on the same Wi-Fi can reach this at")
     print("   http://<YOUR-PC-IP>:5000")

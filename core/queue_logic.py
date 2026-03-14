@@ -125,12 +125,30 @@ def get_stats():
         cursor = conn.cursor()
         cursor.execute("SELECT status, COUNT(*) FROM customers GROUP BY status")
         rows = cursor.fetchall()
-    stats = {"waiting": 0, "serving": 0, "done": 0, "total": 0}
+    stats = {"waiting": 0, "serving": 0, "done": 0}
+    total = 0
     for status, count in rows:
         if status in stats:
             stats[status] = count
-        stats["total"] += count
+        total += count
+    stats["total"] = total
     return stats
+
+
+def get_waiting_position(ticket):
+    """Returns the number of waiting customers ahead of the given ticket (0 = first in line)."""
+    with connect() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM customers WHERE ticket = ?", (ticket,))
+        row = cursor.fetchone()
+        if row is None:
+            return 0
+        ticket_id = row[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM customers WHERE status = 'waiting' AND id < ?",
+            (ticket_id,),
+        )
+        return cursor.fetchone()[0]
 
 
 # ── 5. Delete / Clear ──────────────────────────────────────────

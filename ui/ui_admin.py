@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
+from core.database import create_tables
 from core.queue_logic import (
     join_queue,
     call_next,
@@ -300,6 +301,7 @@ class QueueSystemGUI:
 
 def main():
     """Main entry point for the GUI."""
+    create_tables()
     root = tk.Tk()
     app = QueueSystemGUI(root)
     root.mainloop()
