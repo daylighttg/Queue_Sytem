@@ -126,5 +126,5 @@ if __name__ == "__main__":
     print("🚀 Queue System Flask Server starting …")
     print("   Other devices on the same Wi-Fi can reach this at")
     print("   http://<YOUR-PC-IP>:5000")
-    print("   (find your IP with  ipconfig  in a terminal)\n")
+    print("   (find your IP with ipconfig  in a terminal)\n")
     app.run(host="0.0.0.0", port=5000, debug=os.getenv("FLASK_DEBUG", "0") == "1")

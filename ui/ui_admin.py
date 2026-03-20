@@ -1,5 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+import subprocess
+import os
+import sys
 
 from core.database import create_tables
 from core.queue_logic import (
@@ -21,6 +24,9 @@ class QueueSystemGUI:
         self.root.title("🏥 Queue System")
         self.root.geometry("900x650")
         self.root.resizable(True, True)
+        
+        self.server_process = None
+        self.server_button = None
 
         style = ttk.Style()
         style.theme_use("clam")
@@ -68,6 +74,12 @@ class QueueSystemGUI:
         ).pack(pady=5, fill=tk.X)
 
         ttk.Separator(left_panel, orient=tk.HORIZONTAL).pack(pady=10, fill=tk.X)
+
+        self.server_button = ttk.Button(
+            left_panel, text="🚀 Start Server", width=button_width,
+            command=self.toggle_server,
+        )
+        self.server_button.pack(pady=5, fill=tk.X)
 
         ttk.Button(
             left_panel, text="🔄 Refresh", width=button_width,
@@ -244,6 +256,50 @@ class QueueSystemGUI:
             messagebox.showerror("Error", f"Failed to clear records: {e}")
 
     # ── Display refresh ───────────────────────────────────────
+    def toggle_server(self):
+        """Start or stop the Flask server."""
+        if self.server_process is None:
+            self.start_server()
+        else:
+            self.stop_server()
+
+    def start_server(self):
+        """Start the Flask server in a subprocess."""
+        try:
+            # Get the path to server.py
+            server_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)), "api", "server.py"
+            )
+            
+            # Start the server as a subprocess
+            self.server_process = subprocess.Popen(
+                [sys.executable, server_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            
+            self.server_button.config(text="⏹️  Stop Server", style="")
+            messagebox.showinfo(
+                "Server Started", "✅ Flask server is running on http://0.0.0.0:5000"
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to start server: {e}")
+
+    def stop_server(self):
+        """Stop the Flask server."""
+        try:
+            if self.server_process is not None:
+                self.server_process.terminate()
+                self.server_process.wait(timeout=5)
+                self.server_process = None
+                self.server_button.config(text="🚀 Start Server")
+                messagebox.showinfo("Server Stopped", "✅ Flask server has been stopped.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to stop server: {e}")
+            if self.server_process is not None:
+                self.server_process.kill()
+                self.server_process = None
+
     def refresh_display(self):
         """Refreshes all tabs with current data from the database."""
         for widget in (self.waiting_text, self.history_text, self.stats_text):
@@ -304,6 +360,18 @@ def main():
     create_tables()
     root = tk.Tk()
     app = QueueSystemGUI(root)
+    
+    def on_closing():
+        """Handle graceful shutdown."""
+        if app.server_process is not None:
+            try:
+                app.server_process.terminate()
+                app.server_process.wait(timeout=3)
+            except:
+                app.server_process.kill()
+        root.destroy()
+    
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
 
